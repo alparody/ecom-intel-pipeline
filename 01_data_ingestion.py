@@ -1,34 +1,51 @@
 # Databricks notebook source
-# MAGIC %md
-# # 📥 Data Ingestion - E-Commerce Dataset
-# 
-# هذا الـ Notebook يقوم بتحميل بيانات الـ E-Commerce من ملف ZIP داخل Azure Data Lake، واستخراجها ودمجها، ثم حفظها في Bronze Layer.
+# ⚠️ هذه الخلية فقط للاستخدام المحلي، لا ترفعها على GitHub
+# client_id = "xxx"
+# tenant_id = "xxx"
+# client_secret = "xxx"
 
 # COMMAND ----------
-
-# 📌 إعدادات الاتصال - باستخدام Databricks Secrets (أفضل ممارسة)
-storage_account_name = "ecomintelstorage"
-container_name = "raw"
 
 configs = {
   "fs.azure.account.auth.type": "OAuth",
   "fs.azure.account.oauth.provider.type": "org.apache.hadoop.fs.azurebfs.oauth2.ClientCredsTokenProvider",
-  "fs.azure.account.oauth2.client.id": dbutils.secrets.get(scope="ecom-scope", key="client-id"),
-  "fs.azure.account.oauth2.client.secret": dbutils.secrets.get(scope="ecom-scope", key="client-secret"),
-  "fs.azure.account.oauth2.client.endpoint": f"https://login.microsoftonline.com/{dbutils.secrets.get(scope='ecom-scope', key='tenant-id')}/oauth2/token"
+  "fs.azure.account.oauth2.client.id": client_id,
+  "fs.azure.account.oauth2.client.secret": client_secret,
+  "fs.azure.account.oauth2.client.endpoint": f"https://login.microsoftonline.com/{tenant_id}/oauth2/token"
 }
 
-# Mount ADLS Gen2 to DBFS
-mount_point = f"/mnt/{container_name}"
-if any(mount.mountPoint == mount_point for mount in dbutils.fs.mounts()):
-    dbutils.fs.unmount(mount_point)
+storage_account_name = "ecomintelstorage"
+container_name = "raw"
+
+# إعادة mount للتأكد من الاتصال
+try:
+    dbutils.fs.unmount(f"/mnt/{container_name}")
+except:
+    pass
 
 dbutils.fs.mount(
   source = f"abfss://{container_name}@{storage_account_name}.dfs.core.windows.net/",
-  mount_point = mount_point,
+  mount_point = f"/mnt/{container_name}",
   extra_configs = configs)
 
 # COMMAND ----------
 
-# عرض الملفات داخل الحاوية
-display(dbutils.fs.ls("/mnt/
+# عرض الملفات داخل الـ container
+display(dbutils.fs.ls("/mnt/raw"))
+
+# COMMAND ----------
+
+# تحميل ملف الـ ZIP إلى المسار المحلي
+local_zip_path = "/tmp/EcommerceDataSet.zip"
+dbutils.fs.cp("dbfs:/mnt/raw/EcommerceDataSet.zip", f"file:{local_zip_path}")
+
+# COMMAND ----------
+
+# فك الضغط
+import zipfile, os
+
+extract_path = "/tmp/ecommerce_extract"
+os.makedirs(extract_path, exist_ok=True)
+
+with zipfile.ZipFile(local_zip_path, 'r') as zip_ref:
+    zip_ref.extract_
