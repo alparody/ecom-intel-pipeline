@@ -68,3 +68,65 @@ Layer	  Format	Cleaned	Typed	Null Removed	Ready for Analysis
 Bronze	CSV	    ❌	    ❌	       ❌	      ❌
 Silver	Parquet	✅	    ✅	       ✅	      ✅
 
+
+# 🟡 Gold Layer – Real-Time E-Commerce Analytics
+
+تهدف هذه المرحلة إلى إنتاج جداول تحليلية جاهزة للاستخدام في لوحات البيانات (BI Dashboards).
+
+---
+
+## 🎯 الهدف من Gold Layer
+
+تحويل البيانات النظيفة (Silver Layer) إلى رؤى تحليلية قابلة للاستخدام، مثل:
+
+- تتبع سلوك المستخدم (event funnel)
+- تحليل المبيعات حسب الوقت، المنتج، والمستخدم
+- تحديد أعلى المنتجات مبيعًا وأكثر المستخدمين إنفاقًا
+
+---
+
+## 📁 Notebook 03 – Gold Layer: Aggregation & Analysis
+
+### ✅ الخطوات:
+
+1. **قراءة البيانات من Silver Layer (Parquet):**
+
+```python
+silver_path = "/mnt/silver/ecommerce_data"
+df_silver = spark.read.parquet(silver_path)
+تنفيذ التحليلات:
+
+🕒 عدد الأحداث حسب نوع الحدث:
+df_events_count = df_silver.groupBy("event_type").count()
+💰 إجمالي المبيعات اليومية:
+df_sales_per_day = df_silver \
+    .filter(col("event_type") == "purchase") \
+    .groupBy(to_date("event_time").alias("date")) \
+    .agg(sum("price").alias("total_sales"))
+🛍️ المنتجات الأكثر مبيعًا:
+df_top_products = df_silver \
+    .filter(col("event_type") == "purchase") \
+    .groupBy("product_id") \
+    .agg(count("*").alias("purchase_count")) \
+    .orderBy(desc("purchase_count"))
+👤 أعلى المستخدمين إنفاقًا:
+df_top_users = df_silver \
+    .filter(col("event_type") == "purchase") \
+    .groupBy("user_id") \
+    .agg(sum("price").alias("total_spent")) \
+    .orderBy(desc("total_spent"))
+كتابة النتائج إلى Gold Layer بصيغة Delta:
+
+df_top_products.write.mode("overwrite").format("delta").save("/mnt/gold/top_products")
+df_sales_per_day.write.mode("overwrite").format("delta").save("/mnt/gold/sales_per_day")
+df_top_users.write.mode("overwrite").format("delta").save("/mnt/gold/top_users")
+🧾 النتائج المخزنة
+Folder	التحليل
+/mnt/gold/top_products	المنتجات الأكثر مبيعًا
+/mnt/gold/sales_per_day	إجمالي المبيعات اليومية
+/mnt/gold/top_users	المستخدمين الأعلى إنفاقًا
+
+📌 ملاحظات:
+تم تخزين النتائج بصيغة Delta Lake لدعم Time Travel وعمليات الـ ACID.
+
+التحليلات قابلة للتوسعة حسب الحاجة (مثل التحليل الجغرافي أو تحليلات الـ Funnel).
